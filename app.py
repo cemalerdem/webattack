@@ -10,7 +10,9 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing import sequence
 import tensorflow as tf
+import asyncio
 # First Initilize the Flask Applicaiton
+
 
 app = Flask(__name__)
 
@@ -21,10 +23,10 @@ class NumpyArrayEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def predict_model(sample_pred_text):   
+async def predict_model(sample_pred_text):   
     
     maxlen = 400
-    reqJson = json.loads(sample_pred_text, object_pairs_hook=OrderedDict)
+    reqJson =  json.loads(sample_pred_text, object_pairs_hook=OrderedDict)
 
     instance = json.dumps(reqJson, separators=(',', ':'))
 
@@ -41,13 +43,13 @@ def predict_model(sample_pred_text):
 
     instance = pad_sequences(flat_list, padding='post', maxlen=maxlen)
 
-    model = tf.keras.models.load_model('saved_model/securitai-lstm-model.h5',compile=False)
-    model.load_weights('saved_model/securitai-lstm-weights.h5')
+    model = await tf.keras.models.load_model('model.h5',compile=False)
+    await model.load_weights('model-weights.h5')
     model.compile('adam', 'binary_crossentropy', metrics=['accuracy']) 
     
 
     instance = sequence.pad_sequences(flat_list, padding='post', maxlen=maxlen)
-    prediction = model.predict(instance)
+    prediction = await  model.predict(instance)
     # encodedNumpyData = json.dumps(prediction, cls=NumpyArrayEncoder)
     return prediction.tolist()
 
@@ -65,6 +67,15 @@ movies = [
       "genres": ["Crime", "Drama"]
    }
 ]
+
+@app.route('/', methods=['GET'])
+def home():
+    return "<h1>Distant Reading Archive</h1><p>This site is a prototype API for distant reading of science fiction novels.</p>"
+
+@app.route("/supper", methods=["GET"])
+def heath():
+    return Response(json.dumps({"status":"Uber Super Cemal"}), status=200, mimetype='application/json')
+
 @app.route('/movies')
 def hello():
     return jsonify(movies)
@@ -76,11 +87,11 @@ def add_movie():
     return {'id': len(movies)}, 200
 
 @app.route('/predict', methods=['POST'])
-def keras_predict():
+async def keras_predict():
     text = request.get_json()
     res = json.dumps(text)
-    result = predict_model(res)
-    return {'Result': result[0][0]}, 200
+    result = await predict_model(res)
+    return 'OK'
 
 @app.route('/testt', methods=['GET'])
 def test_keras_predict():    
@@ -93,30 +104,12 @@ def delete_movie(index):
     movies.pop(index)
     return 'None', 200
 
-@app.route('/', methods=['GET'])
-def home():
-    return "<h1>Distant Reading Archive</h1><p>This site is a prototype API for distant reading of science fiction novels.</p>"
 
-@app.route("/supper", methods=["GET"])
-def heath():
-    return Response(json.dumps({"status":"Uber Super Cemal"}), status=200, mimetype='application/json')
 
-@app.route("/predict", methods=["GET","POST"])
-def predict():
-    data = {"success": False}
-    # get the request parameters
-    params = request.json
-    if (params == None):
-        params = request.args
-    # if parameters are found, echo the msg parameter 
-    if (params != None):
-        data["response"] = params.get("msg")
-        data["success"] = True
-    # return a response in json format 
-    return jsonify(data)
+
 
 if __name__ == '__main__':
     app.debug = True
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='0.0.0.0', port=5000)
 
 
